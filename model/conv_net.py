@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 import torchvision.models as models
 
@@ -5,54 +6,18 @@ from collections import OrderedDict
 
 class CONV_NET():
     def __init__(self):
+        model = models.vgg16(pretrained=True)
 
-        self.features = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(64, 64, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=0, dilation=1, ceil_mode=False, return_indices=True),
+        for layer in model.features:
+            if isinstance(layer, torch.nn.Conv2d):
+                pass
+                # print(layer)
+                # print(layer.weight.data)
 
-            nn.Conv2d(64, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(128, 128, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=0, dilation=1, ceil_mode=False, return_indices=True),
-
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(128, 256, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=0, dilation=1, ceil_mode=False, return_indices=True),
-
-            nn.Conv2d(256, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=0, dilation=1, ceil_mode=False, return_indices=True),
-
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.Conv2d(512, 512, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1)),
-            nn.ReLU(),
-            nn.MaxPool2d(kernel_size=(2, 2), stride=2, padding=0, dilation=1, ceil_mode=False, return_indices=True)
-        )
-
-        nn.Sequential(
-            nn.Linear(in_features=25088, out_features=4096, bias=True),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=4096, out_features=4096, bias=True),
-            nn.ReLU(),
-            nn.Dropout(p=0.5),
-            nn.Linear(in_features=4096, out_features=1000, bias=True)
-        )
+            if isinstance(layer, torch.nn.MaxPool2d):
+                # print(layer)
+                layer.return_indices = True
+                # print(layer.return_indices)
 
         self._initialize_weight()
 
@@ -62,7 +27,7 @@ class CONV_NET():
     def forward(self, x):
         pass
 
-
+test = CONV_NET()
 
 # VGG16:
 # VGG(
