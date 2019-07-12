@@ -3,13 +3,27 @@ import torch.nn as nn
 import torchvision.models as models
 from torchvision.transforms import transforms
 
-
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
+def imshow(img):
+    img = img.data
+    print(img.shape)
+    print(type(img))
+
+    # 入力範囲を[-1, 1] から [0, 1] に変更
+    # img = img / 2 + 0.5
+    npimg = img.numpy()
+    #npimg = img
+
+    # 要素の順番を(RGB, H, W) から (H, W, RGB)に変更
+    npimg = np.transpose(npimg, (1, 2, 0))
+    plt.imshow(npimg)
+    plt.show()
+
 # Read image
-img = cv2.imread("./data/Moomin.jpg", cv2.IMREAD_COLOR)
+img = cv2.imread("./data/plane.jpg", cv2.IMREAD_COLOR)
 # img = img[:, :, [2, 1, 0]]
 
 
@@ -30,20 +44,73 @@ for layer in model.features:
         layer.return_indices = True
 
 transform = transforms.Compose([
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.ToTensor()#,
+    #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 img = transform(img)
 img.unsqueeze_(0)
 
-print(img.shape)
-print(type(img))
+# print(img.shape)
+# print(type(img))
+
+x = img
+convd_list = []
+deconv_list = []
+unpool_list = []
+
+print("start loop")
+
+num = 0
 
 for layer in model.features:
-    print(layer)
-    img = layer(img)
-    print(img.shape)
-    # return_indice = Trueだとtupleが返る
+    # print(layer)
+    # print(x.shape)
 
-# model(img)
+    if isinstance(layer, torch.nn.Conv2d):
+        print("isinstance...%s" % layer)
+        B, H, W, C = x.shape
+        print(B, H, W, C)
+        x =  layer(x)
+        # convd_list.append(x)
+        # create deconv_layer
+        # print(x.shape[0], x.shape[1])
+        # print(layer.stride, layer.kernel_size, layer.padding)
+        deconvLayer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
+        deconv_list.append(deconvLayer)
+
+    if isinstance(layer, torch.nn.ReLU):
+        deconv_list.append(layer)
+
+    if isinstance(layer, torch.nn.MaxPool2d):
+        print("isinstance...%s" % layer)
+        x, index = layer(x)
+        print(x.shape)
+        unpool_list.append(index)
+        deconv_list.append(torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding))#, dilation=1, ceil_mode=False))
+        # create unpooling layer
+        num += 1
+        if num == 2:
+            break
+
+print("loop end")
+
+print(x.shape)
+y = x
+
+#y = unpool_list[0](x, index)
+#print(y.shape)
+
+for layer in reversed(deconv_list):
+
+    if isinstance(layer, nn.MaxUnpool2d):
+        print(layer)
+        print(y.shape)
+        y = layer(y, unpool_list.pop())
+    else:
+        print(layer)
+        print(y.shape)
+        y = layer(y)
+
+imshow(y[0])
+
