@@ -7,15 +7,17 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def imshow(img):
-    img = img.data
-    print(img.shape)
-    print(type(img))
+def max_feature(features):
 
-    # 入力範囲を[-1, 1] から [0, 1] に変更
-    # img = img / 2 + 0.5
-    npimg = img.numpy()
-    #npimg = img
+    # 全512枚の特徴マップから活性値が最大値を取得する
+    print("max_feature")
+    print(features.shape)
+
+def imshow(img):
+    npimg = img.data.numpy()
+
+    # 最小値を0,最大値を255に正規化
+    npimg = ((npimg - npimg.min()) * 255 / (npimg.max() - npimg.min())).astype(int)
 
     # 要素の順番を(RGB, H, W) から (H, W, RGB)に変更
     npimg = np.transpose(npimg, (1, 2, 0))
@@ -23,7 +25,7 @@ def imshow(img):
     plt.show()
 
 # Read image
-img = cv2.imread("./data/plane.jpg", cv2.IMREAD_COLOR)
+img = cv2.imread("./data/cat.jpg", cv2.IMREAD_COLOR)
 # img = img[:, :, [2, 1, 0]]
 
 
@@ -64,18 +66,12 @@ print("start loop")
 num = 0
 
 for layer in model.features:
-    # print(layer)
-    # print(x.shape)
 
     if isinstance(layer, torch.nn.Conv2d):
         print("isinstance...%s" % layer)
         B, H, W, C = x.shape
         print(B, H, W, C)
-        x =  layer(x)
-        # convd_list.append(x)
-        # create deconv_layer
-        # print(x.shape[0], x.shape[1])
-        # print(layer.stride, layer.kernel_size, layer.padding)
+        x = layer(x)
         deconvLayer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
         deconv_list.append(deconvLayer)
 
@@ -88,14 +84,16 @@ for layer in model.features:
         print(x.shape)
         unpool_list.append(index)
         deconv_list.append(torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding))#, dilation=1, ceil_mode=False))
-        # create unpooling layer
         num += 1
-        if num == 2:
+        if num == 5:
             break
 
 print("loop end")
 
-print(x.shape)
+print(x.shape) # -> torch.Size([1, 512, 7, 7])
+
+max_feature(x[0])
+
 y = x
 
 #y = unpool_list[0](x, index)
@@ -104,12 +102,12 @@ y = x
 for layer in reversed(deconv_list):
 
     if isinstance(layer, nn.MaxUnpool2d):
-        print(layer)
-        print(y.shape)
+        # print(layer)
+        # print(y.shape)
         y = layer(y, unpool_list.pop())
     else:
-        print(layer)
-        print(y.shape)
+        # print(layer)
+        # print(y.shape)
         y = layer(y)
 
 imshow(y[0])
