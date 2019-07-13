@@ -19,7 +19,7 @@ class CONV_NET():
                 layer.return_indices = True
                 # print(layer.return_indices)
 
-        self._initialize_weight()
+
 
     def _initialize_weight(self):
         pass
