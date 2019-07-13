@@ -11,7 +11,52 @@ def max_feature(features):
 
     # 全512枚の特徴マップから活性値が最大値を取得する
     print("max_feature")
+
     print(features.shape)
+    print(type(features)) # <class 'torch.Tensor'>
+
+    map_numbers = features.shape[0]
+    activations_list = []
+
+    for i in range(0, map_numbers):
+        activations_list.append(features[i].max())
+
+    act_lst = []
+    for i in range(0, map_numbers):
+        choose_map = features[i, :, :]
+        activation = torch.max(choose_map)
+        act_lst.append(activation.item())
+
+    act_lst = np.array(act_lst)
+    mark = np.argmax(act_lst)
+    print(mark)
+
+    choose_map = features[mark, :, :]
+
+    # activation最大化は選べるのか...
+    # torch.maxはテンソル中の最大値を返す
+    max_activation = torch.max(choose_map)
+
+    # make zeros for other feature maps
+    if mark == 0:
+        features[1:, :, :] = 0
+    else:
+        features[:mark, :, :] = 0
+        if mark != features.shape[1] - 1:
+            features[mark + 1:, :, :] = 0
+
+    choose_map = torch.where(choose_map == max_activation,
+                             choose_map,
+                             torch.zeros(choose_map.shape)
+                             )
+
+    # make zeros for ther activations
+    features[mark, :, :] = choose_map
+
+    # print(torch.max(features[0, mark, :, :]))    
+    print(max_activation)
+
+    return features
 
 def imshow(img):
     npimg = img.data.numpy()
@@ -92,7 +137,8 @@ print("loop end")
 
 print(x.shape) # -> torch.Size([1, 512, 7, 7])
 
-max_feature(x[0])
+# x = max_feature(x[0])
+# y = x.unsqueeze_(0)
 
 y = x
 
