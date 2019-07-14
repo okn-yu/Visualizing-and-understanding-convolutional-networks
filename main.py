@@ -16,10 +16,6 @@ def max_feature(features):
     print(type(features)) # <class 'torch.Tensor'>
 
     map_numbers = features.shape[0]
-    activations_list = []
-
-    for i in range(0, map_numbers):
-        activations_list.append(features[i].max())
 
     act_lst = []
     for i in range(0, map_numbers):
@@ -33,16 +29,15 @@ def max_feature(features):
 
     choose_map = features[mark, :, :]
 
-    # activation最大化は選べるのか...
-    # torch.maxはテンソル中の最大値を返す
     max_activation = torch.max(choose_map)
 
-    # make zeros for other feature maps
     if mark == 0:
         features[1:, :, :] = 0
     else:
+        print("zero1")
         features[:mark, :, :] = 0
         if mark != features.shape[1] - 1:
+            print("zero2")
             features[mark + 1:, :, :] = 0
 
     choose_map = torch.where(choose_map == max_activation,
@@ -50,11 +45,9 @@ def max_feature(features):
                              torch.zeros(choose_map.shape)
                              )
 
-    # make zeros for ther activations
     features[mark, :, :] = choose_map
 
-    # print(torch.max(features[0, mark, :, :]))    
-    print(max_activation)
+    print(int(max_activation))
 
     return features
 
@@ -70,39 +63,18 @@ def imshow(img):
     plt.show()
 
 # Read image
-img = cv2.imread("./data/cat.jpg", cv2.IMREAD_COLOR)
-# img = img[:, :, [2, 1, 0]]
-
-
-# H, W, C = img.shape
-# print(img.shape)
+img = cv2.imread("./data/plane.jpg")#, cv2.IMREAD_COLOR)
 img = cv2.resize(img, (224, 224))
-# print(img.shape)
-
-# cv2.imwrite("out.jpg", img)
-# cv2.imshow("result", img)
-# cv2.waitKey(0)
-# cv2.destroyAllWindows()
-
-model = models.vgg16(pretrained=True)
-
-for layer in model.features:
-    if isinstance(layer, torch.nn.MaxPool2d):
-        layer.return_indices = True
 
 transform = transforms.Compose([
-    transforms.ToTensor()#,
-    #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 ])
 
 img = transform(img)
 img.unsqueeze_(0)
 
-# print(img.shape)
-# print(type(img))
-
 x = img
-convd_list = []
 deconv_list = []
 unpool_list = []
 
@@ -110,51 +82,58 @@ print("start loop")
 
 num = 0
 
+model = models.vgg16(pretrained=True).eval()
+
+for layer in model.features:
+    if isinstance(layer, torch.nn.MaxPool2d):
+        layer.return_indices = True
+
 for layer in model.features:
 
     if isinstance(layer, torch.nn.Conv2d):
-        print("isinstance...%s" % layer)
+        print("Conv2d...%s" % layer)
         B, H, W, C = x.shape
-        print(B, H, W, C)
         x = layer(x)
         deconvLayer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
+
+        print("deConv2d...%s" % deconvLayer)
+        deconvLayer.weight = layer.weight
         deconv_list.append(deconvLayer)
 
     if isinstance(layer, torch.nn.ReLU):
+        x = layer(x)
         deconv_list.append(layer)
 
     if isinstance(layer, torch.nn.MaxPool2d):
-        print("isinstance...%s" % layer)
+        print("MaxPool2d...%s" % layer)
         x, index = layer(x)
-        print(x.shape)
         unpool_list.append(index)
-        deconv_list.append(torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding))#, dilation=1, ceil_mode=False))
-        num += 1
-        if num == 5:
-            break
+        unpoolLayer = torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride, padding=layer.padding)#, dilation=1, ceil_mode=False))
+        print("MaxUnpool2d...%s" % unpoolLayer)
+        deconv_list.append(unpoolLayer)
+
+    #num += 1
+    #if num == 28:
+    #    break
 
 print("loop end")
 
-print(x.shape) # -> torch.Size([1, 512, 7, 7])
+x = max_feature(x[0])
+y = x.unsqueeze_(0)
+# y = x
 
-# x = max_feature(x[0])
-# y = x.unsqueeze_(0)
+result = y.clone()
 
-y = x
-
-#y = unpool_list[0](x, index)
-#print(y.shape)
 
 for layer in reversed(deconv_list):
-
     if isinstance(layer, nn.MaxUnpool2d):
-        # print(layer)
-        # print(y.shape)
         y = layer(y, unpool_list.pop())
+        print("unpool_list length: %s" % len(unpool_list))
     else:
-        # print(layer)
-        # print(y.shape)
         y = layer(y)
 
 imshow(y[0])
+
+plt.savefig('result.jpg')
+
 
