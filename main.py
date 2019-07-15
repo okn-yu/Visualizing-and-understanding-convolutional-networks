@@ -7,140 +7,112 @@ import cv2
 import numpy as np
 import matplotlib.pyplot as plt
 
-def max_feature(features):
 
-    # 全512枚の特徴マップから活性値が最大値を取得する
-    map_numbers = features.shape[0]
+def visualize(model, x, layer_max_count):
 
-    act_lst = []
-    for i in range(0, map_numbers):
-        choose_map = features[i, :, :]
-        activation = torch.max(choose_map)
-        act_lst.append(activation.item())
+    deconv_layers_list = []
+    unpool_layers_list = []
+    
+    layer_count = 0
 
-    act_lst = np.array(act_lst)
-    mark = np.argmax(act_lst)
-    print(mark)
+    for layer in model.features:
 
-    choose_map = features[mark, :, :]
+        if isinstance(layer, torch.nn.Conv2d):
+            B, H, W, C = x.shape
+            x = layer(x)
+            deconv_layer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
+            deconv_layer.weight = layer.weight
+            deconv_layers_list.append(deconv_layer)
 
+        if isinstance(layer, torch.nn.ReLU):
+            x = layer(x)
+            deconv_layers_list.append(layer)
+
+        if isinstance(layer, torch.nn.MaxPool2d):
+            x, index = layer(x)
+            unpool_layers_list.append(index)
+            unpool_layer = torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride,
+                                               padding=layer.padding)
+            deconv_layers_list.append(unpool_layer)
+
+        layer_count += 1
+        if layer_max_count == layer_count:
+            break
+
+    y = _max_feature(x[0]).unsqueeze_(0)
+
+    _visualize(deconv_layers_list, y, unpool_layers_list)
+
+
+def _max_feature(feature_maps):
+    feature_maps_total_num = feature_maps.shape[0]
+
+    max_activation_list = []
+    for i in range(feature_maps_total_num):
+        max_activation_val = torch.max(feature_maps[i, :, :])
+        max_activation_list.append(max_activation_val.item())
+
+    max_activation_list = np.array(max_activation_list)
+    max_map_num = np.argmax(max_activation_list)
+
+    choose_map = feature_maps[max_map_num, :, :]
     max_activation = torch.max(choose_map)
-
-    if mark == 0:
-        features[1:, :, :] = 0
-    else:
-        print("zero1")
-        features[:mark, :, :] = 0
-        if mark != features.shape[1] - 1:
-            print("zero2")
-            features[mark + 1:, :, :] = 0
-
     choose_map = torch.where(choose_map == max_activation,
                              choose_map,
                              torch.zeros(choose_map.shape)
                              )
 
-    features[mark, :, :] = choose_map
+    for i in range(feature_maps_total_num):
+        if i != max_map_num:
+            feature_maps[i, :, :] = 0
+        else:
+            feature_maps[i, :, :] = choose_map
 
-    print(int(max_activation))
+    return feature_maps
 
-    return features
 
-def imshow(img):
+def _visualize(deconv_layers_list, y, unpool_layers_list):
+    for layer in reversed(deconv_layers_list):
+        if isinstance(layer, nn.MaxUnpool2d):
+            y = layer(y, unpool_layers_list.pop())
+        else:
+            y = layer(y)
+
+    _imshow(y[0])
+
+
+def _imshow(img):
     npimg = img.data.numpy()
     npimg = ((npimg - npimg.min()) * 255 / (npimg.max() - npimg.min())).astype(int)
 
-    # 要素の順番を(RGB, H, W) から (H, W, RGB)に変更
     npimg = np.transpose(npimg, (1, 2, 0))
     plt.imshow(npimg)
     plt.show()
 
-def visualize(model, x, num):
-    print("loop start")
 
-    count = 0
+if __name__ == '__main__':
 
-    deconv_list = []
-    unpool_list = []
-    features_list = []
+    raw_img = cv2.imread("./data/cat.jpg")
+    resized_img = cv2.resize(raw_img, (224, 224))
 
-    for layer in model.features:
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
-        if isinstance(layer, torch.nn.Conv2d):
-            # print("Conv2d...%s" % layer)
-            B, H, W, C = x.shape
-            x = layer(x)
-            deconvLayer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
+    input_img = transform(resized_img).unsqueeze_(0)
 
-            # print("deConv2d...%s" % deconvLayer)
-            deconvLayer.weight = layer.weight
-            deconv_list.append(deconvLayer)
+    model = models.vgg16(pretrained=True).eval()
+    conv2d_layer_indices = []
 
-        if isinstance(layer, torch.nn.ReLU):
-            x = layer(x)
-            deconv_list.append(layer)
-
+    for i, layer in enumerate(model.features):
         if isinstance(layer, torch.nn.MaxPool2d):
-            # print("MaxPool2d...%s" % layer)
-            x, index = layer(x)
-            unpool_list.append(index)
-            unpoolLayer = torch.nn.MaxUnpool2d(kernel_size=layer.kernel_size, stride=layer.stride,
-                                               padding=layer.padding)  # , dilation=1, ceil_mode=False))
-            # print("MaxUnpool2d...%s" % unpoolLayer)
-            deconv_list.append(unpoolLayer)
+            layer.return_indices = True
+        if isinstance(layer, torch.nn.Conv2d):
+            conv2d_layer_indices.append(i)
 
-        features_list.append(x.clone())
+    for layer_max_count in conv2d_layer_indices:
+        print("layer...%s" % layer_max_count)
 
-        count += 1
-        if count == num:
-            break
-
-    print("loop end")
-
-    x = max_feature(x[0])
-    y = x.unsqueeze_(0)
-
-    _visualize(deconv_list, y, unpool_list)
-
-def _visualize(deconv_list, y, unpool_list):
-    for layer in reversed(deconv_list):
-        if isinstance(layer, nn.MaxUnpool2d):
-            y = layer(y, unpool_list.pop())
-        else:
-            y = layer(y)
-
-    imshow(y[0])
-
-
-# Read image
-img = cv2.imread("./data/cat.jpg")#, cv2.IMREAD_COLOR)
-img = cv2.resize(img, (224, 224))
-
-transform = transforms.Compose([
-    transforms.ToTensor()#,
-    #transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-])
-
-img = transform(img)
-img.unsqueeze_(0)
-
-x = img
-model = models.vgg19(pretrained=True).eval()
-
-conv2d_list = []
-
-# -> リスト内包で実装
-for i, layer in enumerate(model.features):
-    if isinstance(layer, torch.nn.MaxPool2d):
-        layer.return_indices = True
-    if isinstance(layer, torch.nn.Conv2d):
-        conv2d_list.append(i)
-
-print(conv2d_list)
-
-for i in conv2d_list:
-    visualize(model, x, i)
-
-
-
-
+        if layer_max_count == 28:
+            visualize(model, input_img, layer_max_count)
