@@ -41,37 +41,36 @@ def visualize(model, x, layer_max_count):
 
     y = _max_feature(x[0]).unsqueeze_(0)
 
-    _visualize(deconv_layers_list, y, unpool_layers_list)
+    _visualize(y, deconv_layers_list, unpool_layers_list)
 
 
 def _max_feature(feature_maps):
     feature_maps_total_num = feature_maps.shape[0]
 
-    max_activation_list = []
+    activation_list = []
     for i in range(feature_maps_total_num):
-        max_activation_val = torch.max(feature_maps[i, :, :])
-        max_activation_list.append(max_activation_val.item())
+        activation_val = torch.max(feature_maps[i, :, :])
+        activation_list.append(activation_val.item())
 
-    max_activation_list = np.array(max_activation_list)
-    max_map_num = np.argmax(max_activation_list)
+    max_map_num = np.argmax(np.array(activation_list))
+    max_map = feature_maps[max_map_num, :, :]
+    max_activation_val = torch.max(max_map)
 
-    choose_map = feature_maps[max_map_num, :, :]
-    max_activation = torch.max(choose_map)
-    choose_map = torch.where(choose_map == max_activation,
-                             choose_map,
-                             torch.zeros(choose_map.shape)
-                             )
+    max_map = torch.where(max_map == max_activation_val,
+                          max_map,
+                          torch.zeros(max_map.shape)
+                          )
 
     for i in range(feature_maps_total_num):
         if i != max_map_num:
             feature_maps[i, :, :] = 0
         else:
-            feature_maps[i, :, :] = choose_map
+            feature_maps[i, :, :] = max_map
 
     return feature_maps
 
 
-def _visualize(deconv_layers_list, y, unpool_layers_list):
+def _visualize(y, deconv_layers_list, unpool_layers_list):
     for layer in reversed(deconv_layers_list):
         if isinstance(layer, nn.MaxUnpool2d):
             y = layer(y, unpool_layers_list.pop())
@@ -108,11 +107,12 @@ if __name__ == '__main__':
     for i, layer in enumerate(model.features):
         if isinstance(layer, torch.nn.MaxPool2d):
             layer.return_indices = True
-        if isinstance(layer, torch.nn.Conv2d):
+        #if isinstance(layer, torch.nn.Conv2d):
+        if isinstance(layer, torch.nn.MaxPool2d):
             conv2d_layer_indices.append(i)
 
     for layer_max_count in conv2d_layer_indices:
         print("layer...%s" % layer_max_count)
 
-        if layer_max_count == 28:
+        if layer_max_count == 30:
             visualize(model, input_img, layer_max_count)
