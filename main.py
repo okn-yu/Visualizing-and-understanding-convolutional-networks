@@ -15,9 +15,9 @@ def forward_img(model, x, layer_max_count):
 
     for layer in model.features:
         if isinstance(layer, torch.nn.Conv2d):
-            B, H, W, C = x.shape
+            B, C, H, W = x.shape
             x = layer(x)
-            deconv_layer = nn.ConvTranspose2d(layer.out_channels, H, layer.kernel_size, layer.stride, layer.padding)
+            deconv_layer = nn.ConvTranspose2d(layer.out_channels, C, layer.kernel_size, layer.stride, layer.padding)
             deconv_layer.weight = layer.weight
             deconv_layers_list.append(deconv_layer)
 
@@ -75,18 +75,22 @@ def backward_feature_maps(y, deconv_layers_list, unpool_layers_list):
     return y
 
 
-def visualize(img):
+def visualize(layer_max_count, img):
     npimg = img[0].data.numpy()
-    npimg = ((npimg - npimg.min()) * 255 / (npimg.max() - npimg.min())).astype(int)
-
+    npimg = ((npimg - npimg.min()) * 255 / (npimg.max() - npimg.min())).astype('uint8')
     npimg = np.transpose(npimg, (1, 2, 0))
+    path = "./output/" + str(layer_max_count) + "th-layer.png"
+
     plt.imshow(npimg)
     plt.show()
+    plt.imsave(path, npimg)
 
 
 if __name__ == '__main__':
 
-    raw_img = cv2.imread("./data/cat.jpg")
+    raw_img = cv2.imread("./data/mofu.png")
+    raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
+
     resized_img = cv2.resize(raw_img, (224, 224))
 
     transform = transforms.Compose([
@@ -96,7 +100,7 @@ if __name__ == '__main__':
 
     input_img = transform(resized_img).unsqueeze_(0)
 
-    model = models.vgg16(pretrained=True).eval()
+    model = models.vgg16().eval()
     visualize_layer_indices = []
 
     for i, layer in enumerate(model.features):
@@ -107,6 +111,7 @@ if __name__ == '__main__':
     for layer_max_count in visualize_layer_indices:
         print("layer...%s" % layer_max_count)
         raw_feature_maps, deconv_layers_list, unpool_layers_list = forward_img(model, input_img, layer_max_count)
-        input_feature_maps = filter_feature_maps(raw_feature_maps)
-        reproducted_img = backward_feature_maps(input_feature_maps, deconv_layers_list, unpool_layers_list)
-        visualize(reproducted_img)
+        # input_feature_maps = filter_feature_maps(raw_feature_maps)
+        # reproducted_img = backward_feature_maps(input_feature_maps, deconv_layers_list, unpool_layers_list)
+        reproducted_img = backward_feature_maps(raw_feature_maps, deconv_layers_list, unpool_layers_list)
+        visualize(layer_max_count, reproducted_img)

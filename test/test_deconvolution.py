@@ -67,13 +67,13 @@ if __name__ == '__main__':
     conv_layer = model.features[0]
     conv_result = conv_layer(input_img)
 
-    C = conv_layer.out_channels
-    H = input_img.shape[1]
+    in_channels = conv_layer.out_channels
+    out_channels = input_img.shape[1]
     kernel_size = conv_layer.kernel_size
     stride = conv_layer.stride
     padding = conv_layer.padding
 
-    deconv_layer = torch.nn.ConvTranspose2d(C, H, kernel_size, stride, padding)
+    deconv_layer = torch.nn.ConvTranspose2d(in_channels, out_channels, kernel_size, stride, padding)
     deconv_layer.weight = conv_layer.weight
     deconv_result = deconv_layer(conv_result)
 
