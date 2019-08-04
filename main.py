@@ -88,7 +88,7 @@ def visualize(layer_max_count, img):
 
 if __name__ == '__main__':
 
-    raw_img = cv2.imread("./data/mikeneko.jpg")
+    raw_img = cv2.imread("./data/cat.jpg")
     raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
 
     resized_img = cv2.resize(raw_img, (224, 224))
