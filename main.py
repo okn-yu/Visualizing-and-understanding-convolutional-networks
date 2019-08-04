@@ -88,7 +88,7 @@ def visualize(layer_max_count, img):
 
 if __name__ == '__main__':
 
-    raw_img = cv2.imread("./data/mofu.png")
+    raw_img = cv2.imread("./data/mikeneko.jpg")
     raw_img = cv2.cvtColor(raw_img, cv2.COLOR_BGR2RGB)
 
     resized_img = cv2.resize(raw_img, (224, 224))
@@ -100,7 +100,7 @@ if __name__ == '__main__':
 
     input_img = transform(resized_img).unsqueeze_(0)
 
-    model = models.vgg16().eval()
+    model = models.vgg16(pretrained=True).eval()
     visualize_layer_indices = []
 
     for i, layer in enumerate(model.features):
@@ -111,7 +111,7 @@ if __name__ == '__main__':
     for layer_max_count in visualize_layer_indices:
         print("layer...%s" % layer_max_count)
         raw_feature_maps, deconv_layers_list, unpool_layers_list = forward_img(model, input_img, layer_max_count)
-        # input_feature_maps = filter_feature_maps(raw_feature_maps)
-        # reproducted_img = backward_feature_maps(input_feature_maps, deconv_layers_list, unpool_layers_list)
+        #filtered_feature_maps = filter_feature_maps(raw_feature_maps)
+        #reproducted_img = backward_feature_maps(filtered_feature_maps, deconv_layers_list, unpool_layers_list)
         reproducted_img = backward_feature_maps(raw_feature_maps, deconv_layers_list, unpool_layers_list)
         visualize(layer_max_count, reproducted_img)
