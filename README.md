@@ -1,5 +1,5 @@
 # Abstract
-Implementation of Visualizing and understanding convolutional networks
+Implementation of Visualizing and understanding convolutional networks.
 
 # Link
 https://cs.nyu.edu/~fergus/papers/zeilerECCV2014.pdf  
@@ -14,4 +14,5 @@ Just execute main.py !
 ```python
 python3 main.py
 ```
-
+# Explanation
+https://qiita.com/okn-yu/items/53bbff161c027dc04981
